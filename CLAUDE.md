@@ -255,7 +255,7 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
   (strict, variantes comprises). « Rupture » ici = minimum > 0 et stock nul. Le filtre `depleted_stock`
   d'InvenTree (`in_stock = 0` et des lots existants) rate les lots supprimés par `delete_on_deplete`.
 - **`POST /api/stock/remove/` ne refuse pas une quantité supérieure au lot** : 201, le lot est vidé (et
-  supprimé). L'intégration vérifie le total avant et répartit sur les lots, les plus anciens d'abord
+  supprimé). L'intégration vérifie le total avant et répartit sur les lots (péremption la plus proche, puis les plus anciens), une sortie à la fois
   (fixture `remove-too-much.json`).
 - Réception complète d'une commande (`/order/po/<id>/receive/`) : la commande passe d'elle-même à
   `COMPLETE` (30). Une commande qui quitte `outstanding=true` est lue une fois pour distinguer reçue,

@@ -98,10 +98,9 @@ cada tipo por lectura (una importación masiva no inunda sus escenas).
   Salidas: cantidad en stock, stock mínimo, cantidad pedida, bajo el mínimo
   (sí/no) y una frase como «Arduino Nano: 2 en stock, mínimo 3, 5 pedidos.».
 - **Retirar stock** (solo si está permitido en la configuración): retira una
-  cantidad de un artículo, empezando por sus artículos de stock más antiguos,
+  cantidad de un artículo, empezando por los artículos de stock que caducan antes, luego los más antiguos,
   y la anota en el historial de InvenTree («Removed by a Gladys Assistant
-  scene»). No se retira nada si el stock es insuficiente. Los artículos
-  serializados no se tocan. Mismas salidas que la lectura.
+  scene»). No se retira nada si el stock es insuficiente. Solo se usan los artículos de stock del propio artículo (no los de sus variantes), stock asignado incluido; los artículos serializados no se tocan. Mismas salidas que la lectura.
 
 ## Ejemplos de escenas
 
@@ -141,6 +140,9 @@ cada tipo por lectura (una importación masiva no inunda sus escenas).
 - Un artículo sin stock mínimo nunca está «bajo el mínimo» ni «agotado»: dé un
   mínimo (aunque sea 1) a los artículos que quiera seguir.
 - El valor solo cuenta los artículos en stock que tienen precio de compra.
+- La acción de escena retira cantidades enteras (1 o más): el formulario de
+  Gladys no tiene decimales. Las cantidades decimales (0,5 kg) se muestran tal
+  cual.
 - Los pedidos de venta, las fabricaciones y los demás módulos de InvenTree no
   se siguen.
 - Sin relación con el proyecto InvenTree.

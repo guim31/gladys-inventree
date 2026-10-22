@@ -104,10 +104,9 @@ vos scènes).
   commande, sous le seuil (oui/non) et une phrase comme « Arduino Nano : 2 en
   stock, minimum 3, 5 en commande. ».
 - **Sortir du stock** (seulement si autorisé dans la configuration) : retire
-  une quantité d'un article, en commençant par ses lots les plus anciens, et
+  une quantité d'un article, en commençant par les lots qui périment le plus tôt, puis les plus anciens, et
   l'inscrit dans l'historique d'InvenTree (« Removed by a Gladys Assistant
-  scene »). Rien n'est retiré si le stock est insuffisant. Les articles
-  sérialisés ne sont pas touchés. Mêmes sorties que la lecture.
+  scene »). Rien n'est retiré si le stock est insuffisant. Seuls les lots de l'article lui-même servent (pas ceux de ses variantes), stock réservé compris ; les articles sérialisés ne sont pas touchés. Mêmes sorties que la lecture.
 
 ## Exemples de scènes
 
@@ -149,6 +148,9 @@ vos scènes).
 - Un article sans stock minimum n'est jamais « sous le seuil » ni « en
   rupture » : donnez un minimum (même 1) aux articles à suivre.
 - La valeur ne compte que les articles en stock qui ont un prix d'achat.
+- L'action de scène retire des quantités entières (1 ou plus) : le formulaire
+  de Gladys n'a pas de décimales. Les quantités décimales (0,5 kg) s'affichent
+  telles quelles.
 - Les commandes clients, les fabrications et les autres modules d'InvenTree ne
   sont pas suivis.
 - Sans lien avec le projet InvenTree.

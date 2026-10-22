@@ -101,10 +101,9 @@ jeder Art pro Lesevorgang (ein Massenimport überflutet deine Szenen nicht).
   Mindestbestand (ja/nein) und ein Satz wie „Arduino Nano: 2 auf Lager,
   Minimum 3, 5 bestellt.“.
 - **Bestand entnehmen** (nur wenn in der Konfiguration erlaubt): entnimmt
-  eine Menge eines Teils, zuerst aus den ältesten Lagerartikeln, und trägt sie
+  eine Menge eines Teils, zuerst aus den Lagerartikeln, die am frühesten ablaufen, dann den ältesten, und trägt sie
   in den Verlauf von InvenTree ein („Removed by a Gladys Assistant scene“).
-  Reicht der Bestand nicht, wird nichts entnommen. Serialisierte Artikel
-  bleiben unberührt. Dieselben Ausgaben wie beim Lesen.
+  Reicht der Bestand nicht, wird nichts entnommen. Nur die eigenen Lagerartikel des Teils zählen (nicht die seiner Varianten), reservierter Bestand eingeschlossen; serialisierte Artikel bleiben unberührt. Dieselben Ausgaben wie beim Lesen.
 
 ## Szenenbeispiele
 
@@ -146,6 +145,8 @@ jeder Art pro Lesevorgang (ein Massenimport überflutet deine Szenen nicht).
 - Ein Teil ohne Mindestbestand ist nie „unter Mindestbestand“ oder „nicht
   vorrätig“: gib den Teilen, die du verfolgen willst, ein Minimum (auch 1).
 - Der Wert zählt nur Lagerartikel mit Einkaufspreis.
+- Die Szenenaktion entnimmt ganze Mengen (1 oder mehr): das Gladys-Formular
+  kennt keine Dezimalstellen. Dezimale Mengen (0,5 kg) werden so angezeigt.
 - Verkaufsaufträge, Fertigungen und die anderen InvenTree-Module werden nicht
   verfolgt.
 - Nicht mit dem InvenTree-Projekt verbunden.

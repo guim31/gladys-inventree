@@ -93,9 +93,9 @@ each kind are fired per read (a mass import does not flood your scenes).
   in stock, minimum stock, quantity on order, below minimum (yes/no) and a
   sentence such as "Arduino Nano: 2 in stock, minimum 3, 5 on order.".
 - **Remove stock** (only when allowed in the configuration): takes a quantity
-  out of a part, from its oldest stock items first, and writes it in the
+  out of a part, from its stock items expiring first, then the oldest, and writes it in the
   history of InvenTree ("Removed by a Gladys Assistant scene"). Nothing is
-  removed when the stock is short. Serialized items are left alone. Same
+  removed when the stock is short. Only the part's own stock items are used (not those of its variants), allocated stock included; serialized items are left alone. Same
   outputs as the reading.
 
 ## Scene examples
@@ -132,5 +132,7 @@ each kind are fired per read (a mass import does not flood your scenes).
 - Parts without a minimum stock are never "below minimum" nor "out of stock":
   give a minimum (even 1) to the parts you want to follow.
 - The value only counts stock items that have a purchase price.
+- The scene action removes whole quantities (1 or more): the Gladys form has
+  no decimals. Decimal quantities (0.5 kg) are shown as they are.
 - Sales orders, builds and the other InvenTree modules are not followed.
 - Not affiliated with the InvenTree project.

@@ -94,7 +94,8 @@ export const STATUS_TEXT = {
     invalid: 'La dirección de InvenTree no es válida (http o https, sin nombre de usuario).',
     token: 'Introduzca un token de API de InvenTree.',
     unreachable: 'InvenTree no responde: compruebe su dirección y que esté en marcha.',
-    unauthorized: 'Token rechazado: compruebe el token de API (puede haber caducado o revocado).',
+    unauthorized:
+      'Token rechazado: compruebe el token de API (puede haber caducado o haber sido revocado).',
     forbidden: 'El usuario de este token no puede ver los artículos (rol «Piezas», ver).',
     invalid_answer: 'Esta dirección no responde como InvenTree (¿página de acceso de un proxy?).',
   },
@@ -199,7 +200,7 @@ export const PART_TEXT = {
   es: {
     stock: (name, quantity, units) => `${name}: ${quantity}${units} en stock`,
     minimum: (minimum) => `, mínimo ${minimum}`,
-    ordering: (quantity) => `, ${quantity} pedidos`,
+    ordering: (quantity) => `, ${quantity} en pedido`,
   },
 };
 

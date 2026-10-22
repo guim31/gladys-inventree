@@ -402,6 +402,7 @@ test('a removal below the minimum fires the trigger at once', async (t) => {
   t.after(() => world.app.stop());
   const ack = await world.fake.sceneAction('remove_stock', { part: 'PLA black 1kg', quantity: 2 });
   assert.equal(ack.success, true, ack.error);
+  await settle(20);
   assert.deepEqual(
     world.fake.sceneEvents.map((e) => [e.key, e.data.part, e.data.quantity]),
     [[TRIGGERS.low, 'PLA black 1kg', 1]],
@@ -444,4 +445,63 @@ test('the container reads InvenTree on its own timer', async (t) => {
 
 test('the clock of the tests is the day of the fixtures', () => {
   assert.equal(new Date(NOW).getDate(), 22);
+});
+
+test('two removals at once cannot both pass the stock check', async (t) => {
+  const world = await createWorld({
+    config: { url: HOST, api_token: TOKEN, allow_stock_removal: true, language: 'en' },
+  });
+  t.after(() => world.app.stop());
+  const [first, second] = await Promise.all([
+    world.fake.sceneAction('remove_stock', { part: 'AA batteries', quantity: 3 }),
+    world.fake.sceneAction('remove_stock', { part: 'AA batteries', quantity: 3 }),
+  ]);
+  assert.equal(first.success, true, first.error);
+  assert.match(second.error, /Not enough stock/);
+  assert.equal(world.server.part(5).total_in_stock, 1);
+});
+
+test('a plain number is never a piece of a name; decimals are rounded as InvenTree does', async (t) => {
+  const world = await createWorld({
+    config: { url: HOST, api_token: TOKEN, allow_stock_removal: true, language: 'en' },
+  });
+  t.after(() => world.app.stop());
+  world.server.part(1).name = 'Battery 12V';
+  await world.hub.refresh();
+  const ack = await world.fake.sceneAction('remove_stock', { part: '12', quantity: 1 });
+  assert.match(ack.error, /No active part/);
+  assert.ok(!world.server.state.requests.some((r) => r.startsWith('POST')));
+  world.server.state.stock.find((row) => row.part === 5).quantity = 0.1;
+  world.server.state.stock.push({ ...world.server.state.stock[0], pk: 51, part: 5, quantity: 4 });
+  const posted = [];
+  const fetch = world.server.fetch;
+  world.hub.client.fetch = async (url, init) => {
+    if (init.method === 'POST') posted.push(JSON.parse(init.body).items);
+    return fetch(url, init);
+  };
+  const small = await world.fake.sceneAction('remove_stock', { part: '#5', quantity: 0.1000001 });
+  assert.equal(small.success, true, small.error);
+  assert.deepEqual(posted, [[{ pk: 5, quantity: '0.1' }]]);
+});
+
+test('a stop while announcing saves what was fired; the rest fires at the next start', async (t) => {
+  const store = new MemoryStore();
+  const server = createInvenTree();
+  const world = await createWorld({ store, server });
+  server.setStock(2, 1);
+  server.setStock(1, 50);
+  const publish = world.gladys.publishSceneEvent.bind(world.gladys);
+  world.gladys.publishSceneEvent = async (...args) => {
+    await publish(...args);
+    world.hub.stopped = true;
+  };
+  await world.hub.refresh();
+  await world.app.stop();
+  assert.equal(world.fake.sceneEvents.length, 1);
+  const again = await createWorld({ store, server });
+  t.after(() => again.app.stop());
+  assert.deepEqual(
+    again.fake.sceneEvents.map((e) => e.data.part),
+    world.fake.sceneEvents[0].data.part === 'PLA black 1kg' ? ['Resistor 10k'] : ['PLA black 1kg'],
+  );
 });

@@ -18,6 +18,7 @@ import {
   buildStockStates,
   followedParts,
   partIdOf,
+  partIds,
   stockIds,
 } from './devices.js';
 import { InvenTreeClient, InvenTreeError } from './inventree/client.js';
@@ -111,6 +112,8 @@ export class Hub {
     this.widgetRefreshAt = 0;
     this.widgetTimer = null;
     this.publishFailing = false;
+    this.devicesFailing = false;
+    this.removing = Promise.resolve();
     this.stopped = false;
   }
 
@@ -137,6 +140,9 @@ export class Hub {
   }
 
   async #reconfigure(config) {
+    if (this.stopped) {
+      return;
+    }
     const previous = this.config;
     this.config = config;
     const linkChanged =
@@ -370,7 +376,9 @@ export class Hub {
       }
       for (const [key, event] of fresh.slice(0, MAX_EVENTS_PER_READ)) {
         if (this.stopped) {
-          return;
+          // Not fired: the next start fires it.
+          failed.add(`${kind}:${key}`);
+          continue;
         }
         await fire(kind, key, event());
       }
@@ -386,7 +394,8 @@ export class Hub {
         const gone = orders.filter((id) => !outstanding.includes(id));
         for (const id of gone.slice(0, MAX_EVENTS_PER_READ)) {
           if (this.stopped) {
-            return;
+            kept.push(id);
+            continue;
           }
           const keep = await this.#orderGone(client, id, fire, failed);
           if (keep) {
@@ -466,7 +475,12 @@ export class Hub {
     if (!this.parts) {
       return [];
     }
-    const parts = followedParts(this.parts, this.config.partDevices);
+    // A stable choice past the cap: the devices already added first, then the
+    // oldest parts (the API answers sorted by name).
+    const created = (part) => (this.#isCreated(partIds(this.gladys, part.id).device) ? 0 : 1);
+    const parts = followedParts(this.parts, this.config.partDevices).sort(
+      (a, b) => created(a) - created(b) || a.id - b.id,
+    );
     if (parts.length > MAX_PART_DEVICES && !this.tooManyLogged) {
       this.tooManyLogged = true;
       logger.warn(
@@ -487,7 +501,9 @@ export class Hub {
         version: this.version,
         currency: this.value?.currency ?? null,
       }),
-      ...this.followed().map((part) => buildPartDevice(this.gladys, part, this.language, url)),
+      ...this.followed()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((part) => buildPartDevice(this.gladys, part, this.language, url)),
     ];
   }
 
@@ -498,8 +514,18 @@ export class Hub {
     try {
       await this.gladys.publishDiscoveredDevices(this.buildDevices());
     } catch (err) {
-      logger.error('Cannot publish the devices', err);
+      if (this.devicesFailing) {
+        logger.debug(`Cannot publish the devices: ${err.message}`);
+      } else {
+        logger.warn(`Cannot publish the devices: ${err.message}`);
+      }
+      this.devicesFailing = true;
+      return;
     }
+    if (this.devicesFailing) {
+      logger.info('Devices published again');
+    }
+    this.devicesFailing = false;
   }
 
   /**
@@ -638,6 +664,8 @@ export class Hub {
     try {
       await this.gladys.setConnectionStatus(connected, message ?? undefined);
     } catch (err) {
+      // Sent again at the next update.
+      this.lastStatus = '';
       logger.warn(`Cannot set the connection status: ${err.message}`);
     }
   }
@@ -672,7 +700,9 @@ export class Hub {
 
   /**
    * A part from what a scene author typed: `#12` (its number), its IPN, its
-   * name, a plain number, or a piece of its name matching only one part.
+   * name, a plain number, or a piece of its name matching only one part. A
+   * plain number never falls back to a piece of name ("12" is not
+   * "Battery 12V"): a scene may remove stock with it.
    */
   async resolvePart(reference) {
     const raw = typeof reference === 'number' ? String(reference) : String(reference ?? '').trim();
@@ -701,8 +731,9 @@ export class Hub {
     const found =
       one(parts.filter((part) => part.ipn.toLocaleLowerCase() === lower)) ??
       one(parts.filter((part) => part.name.toLocaleLowerCase() === lower)) ??
-      (/^\d+$/.test(raw) ? byId(raw) : undefined) ??
-      one(parts.filter((part) => part.name.toLocaleLowerCase().includes(lower)));
+      (/^\d+$/.test(raw)
+        ? byId(raw)
+        : one(parts.filter((part) => part.name.toLocaleLowerCase().includes(lower))));
     if (!found) {
       throw this.#error('part_not_found');
     }
@@ -739,16 +770,25 @@ export class Hub {
   }
 
   /**
-   * Scene action "Remove stock": takes the quantity from the part's stock
-   * items, oldest first, in one request. Refused unless enabled in the
-   * configuration, and when the stock is short: InvenTree itself would
-   * silently empty the items instead.
+   * Scene action "Remove stock": takes the quantity from the part's own stock
+   * items (not its variants'), those expiring first, then the oldest, in one
+   * request. Refused unless enabled in the configuration, and when the stock
+   * is short: InvenTree itself would silently empty the items instead. One
+   * removal at a time: two scenes at once cannot both pass the check.
    */
-  async removeStock(reference, rawQuantity) {
+  removeStock(reference, rawQuantity) {
+    const run = this.removing.then(() => this.#removeStock(reference, rawQuantity));
+    this.removing = run.catch(() => {});
+    return run;
+  }
+
+  async #removeStock(reference, rawQuantity) {
     if (!this.config.allowStockRemoval) {
       throw this.#error('removal_disabled');
     }
-    const quantity = number(rawQuantity);
+    const typed = number(rawQuantity);
+    // InvenTree keeps 5 decimals.
+    const quantity = typed === null ? null : round(typed, 5);
     if (quantity === null || quantity <= 0) {
       throw this.#error('quantity_invalid');
     }
@@ -756,7 +796,10 @@ export class Hub {
     let rows;
     try {
       rows = await this.client.stock({ part: String(part.id) });
-    } catch {
+    } catch (err) {
+      if (err instanceof InvenTreeError && ['forbidden', 'unauthorized'].includes(err.kind)) {
+        throw this.#error('forbidden');
+      }
       throw this.#error('unreachable');
     }
     // Serialized items are single pieces, tracked one by one: left alone.
@@ -765,19 +808,22 @@ export class Hub {
       .sort(
         (a, b) => (a.expiry_date ?? '9999').localeCompare(b.expiry_date ?? '9999') || a.pk - b.pk,
       );
-    const available = items.reduce((sum, row) => sum + number(row.quantity), 0);
-    if (available + 1e-9 < quantity) {
+    const available = round(
+      items.reduce((sum, row) => sum + number(row.quantity), 0),
+      5,
+    );
+    if (available < quantity) {
       throw this.#error('not_enough');
     }
     const taken = [];
     let left = quantity;
     for (const row of items) {
-      if (left <= 1e-9) {
+      const take = round(Math.min(left, number(row.quantity)), 5);
+      if (take <= 0) {
         break;
       }
-      const take = Math.min(left, number(row.quantity));
-      taken.push({ pk: row.pk, quantity: String(round(take, 5)) });
-      left -= take;
+      taken.push({ pk: row.pk, quantity: String(take) });
+      left = round(left - take, 5);
     }
     try {
       await this.client.removeStock(taken, REMOVAL_NOTE);
@@ -789,12 +835,14 @@ export class Hub {
       throw this.#error('failed');
     }
     logger.info(`Removed ${quantity} of part ${part.id} from ${taken.length} stock item(s)`);
-    // The counts, devices and triggers follow at once.
-    await this.refresh();
-    const after = this.parts?.find((p) => p.id === part.id) ?? {
+    // The counts, devices and triggers follow without delaying the answer.
+    this.refresh().catch(() => {});
+    // The removal is done: a failed read must not fail the action (a retry
+    // would remove twice).
+    const after = await this.#freshPart(part).catch(() => ({
       ...part,
       stock: round(part.stock - quantity),
-    };
+    }));
     return this.#outputs(after);
   }
 }

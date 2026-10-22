@@ -57,8 +57,8 @@ devices are published with `should_poll: false`; only changed states are sent
 to Gladys, with a heartbeat every 6 hours. "Below minimum" is InvenTree's own
 rule: a minimum stock above zero and a total stock strictly below it.
 
-The removal checks the stock first and takes it from the oldest stock items in
-one request: InvenTree itself would silently empty an item when asked for more
+The removal checks the stock first and takes it from the items expiring first, then the
+oldest, in one request: InvenTree itself would silently empty an item when asked for more
 than it holds.
 
 ## Limitations

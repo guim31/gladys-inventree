@@ -17,7 +17,7 @@ export const TEXT = {
   badge_out: { en: 'Out', fr: 'Rupture', de: 'Leer', es: 'Agotado' },
   badge_low: { en: 'Low', fr: 'Bas', de: 'Knapp', es: 'Bajo' },
   minimum: { en: 'min.', fr: 'min.', de: 'min.', es: 'mín.' },
-  on_order: { en: 'on order', fr: 'en commande', de: 'bestellt', es: 'pedidos' },
+  on_order: { en: 'on order', fr: 'en commande', de: 'bestellt', es: 'en pedido' },
   nothing: {
     en: 'Nothing to restock.',
     fr: 'Rien à réapprovisionner.',
