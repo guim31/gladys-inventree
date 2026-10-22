@@ -1,0 +1,39 @@
+{
+  "server": "InvenTree",
+  "id": null,
+  "version": "1.6.1",
+  "instance": "InvenTree",
+  "apiVersion": 561,
+  "worker_running": false,
+  "worker_count": 1,
+  "worker_pending_tasks": 24,
+  "plugins_enabled": false,
+  "plugins_install_disabled": true,
+  "email_configured": false,
+  "debug_mode": false,
+  "docker_mode": true,
+  "default_locale": "en-us",
+  "customize": {
+    "logo": "/static/img/inventree.png",
+    "splash": "/static/img/inventree_splash.jpg",
+    "login_message": null,
+    "navbar_message": null,
+    "disable_theme_storage": false
+  },
+  "active_plugins": false,
+  "system_health": false,
+  "database": "django.db.backends.postgresql",
+  "platform": "Linux-x86_64-with-glibc2.41",
+  "installer": "DOC",
+  "target": null,
+  "django_admin": "admin",
+  "settings": {
+    "sso_enabled": false,
+    "sso_registration": false,
+    "registration_enabled": false,
+    "password_forgotten_enabled": true
+  },
+  "system_state": {
+    "cors_allow_all": true
+  }
+}

@@ -1,177 +1,681 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "InvenTree",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "InvenTree in Gladys: parts below minimum, out of stock, purchase orders and stock value.",
+    "fr": "InvenTree dans Gladys : articles sous le seuil, ruptures, commandes en cours, valeur du stock.",
+    "de": "InvenTree in Gladys: Teile unter Mindestbestand, leere Teile, Bestellungen und Lagerwert.",
+    "es": "InvenTree en Gladys: artículos bajo el mínimo, agotados, pedidos en curso y valor del stock."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-inventree:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-inventree/main/cover.png",
+  "categories": ["services"],
   "transports": ["local", "cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Connect InvenTree",
+        "fr": "Connecter InvenTree",
+        "de": "InvenTree verbinden",
+        "es": "Conectar InvenTree"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Enter the address of your InvenTree server and an API token: in InvenTree, open your user settings, Security, Access tokens, and add a token. The user of the token needs to view parts; to view purchase orders and stock items for the orders and the value; to change stock only for the stock removal.",
+        "fr": "Saisissez l'adresse de votre serveur InvenTree et un jeton d'API : dans InvenTree, ouvrez vos paramètres utilisateur, Sécurité, Jetons d'accès, et ajoutez un jeton. L'utilisateur du jeton doit pouvoir voir les pièces ; voir les commandes d'achat et le stock pour les commandes et la valeur ; modifier le stock seulement pour la sortie de stock.",
+        "de": "Gib die Adresse deines InvenTree-Servers und ein API-Token ein: Öffne in InvenTree deine Benutzereinstellungen, Sicherheit, Zugriffstoken, und füge ein Token hinzu. Der Benutzer des Tokens muss Teile sehen dürfen; Bestellungen und Lagerartikel für die Bestellungen und den Wert; den Bestand ändern nur für die Lagerentnahme.",
+        "es": "Introduzca la dirección de su servidor InvenTree y un token de API: en InvenTree, abra los ajustes de su usuario, Seguridad, Tokens de acceso, y añada un token. El usuario del token debe poder ver las piezas; ver los pedidos de compra y el stock para los pedidos y el valor; modificar el stock solo para la salida de stock."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://docs.inventree.org/en/stable/api/",
+          "label": {
+            "en": "InvenTree API and tokens",
+            "fr": "API et jetons d'InvenTree",
+            "de": "InvenTree-API und Tokens",
+            "es": "API y tokens de InvenTree"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "url",
+      "type": "string",
+      "label": {
+        "en": "InvenTree address",
+        "fr": "Adresse d'InvenTree",
+        "de": "InvenTree-Adresse",
+        "es": "Dirección de InvenTree"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "placeholder": {
+        "en": "e.g. http://192.168.1.50:8000",
+        "fr": "ex. http://192.168.1.50:8000",
+        "de": "z. B. http://192.168.1.50:8000",
+        "es": "p. ej. http://192.168.1.50:8000"
+      },
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "default": ""
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "api_token",
+      "type": "secret",
+      "label": {
+        "en": "API token",
+        "fr": "Jeton d'API",
+        "de": "API-Token",
+        "es": "Token de API"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "required": true
     },
     {
-      "key": "unit",
+      "key": "refresh_minutes",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Read InvenTree every",
+        "fr": "Lire InvenTree toutes les",
+        "de": "InvenTree lesen alle",
+        "es": "Leer InvenTree cada"
+      },
       "required": false,
-      "default": "celsius",
+      "default": "15",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "5",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        },
+        {
+          "value": "15",
+          "label": {
+            "en": "15 minutes",
+            "fr": "15 minutes",
+            "de": "15 Minuten",
+            "es": "15 minutos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 minutes",
+            "fr": "30 minutes",
+            "de": "30 Minuten",
+            "es": "30 minutos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 hour",
+            "fr": "1 heure",
+            "de": "1 Stunde",
+            "es": "1 hora"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "part_devices",
+      "type": "select",
+      "label": {
+        "en": "One device per part",
+        "fr": "Un appareil par article",
+        "de": "Ein Gerät pro Teil",
+        "es": "Un dispositivo por artículo"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Quantity in stock, minimum and quantity on order of each part, with history (50 parts at most).",
+        "fr": "Quantité en stock, minimum et quantité en commande de chaque article, avec historique (50 articles au plus).",
+        "de": "Menge auf Lager, Minimum und bestellte Menge jedes Teils, mit Verlauf (höchstens 50 Teile).",
+        "es": "Cantidad en stock, mínimo y cantidad pedida de cada artículo, con historial (50 artículos como máximo)."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "starred",
+      "options": [
+        {
+          "value": "none",
+          "label": {
+            "en": "None",
+            "fr": "Aucun",
+            "de": "Keines",
+            "es": "Ninguno"
+          }
+        },
+        {
+          "value": "starred",
+          "label": {
+            "en": "Parts the token user subscribed to (star)",
+            "fr": "Articles suivis par l'utilisateur du jeton (étoile)",
+            "de": "Vom Token-Benutzer abonnierte Teile (Stern)",
+            "es": "Artículos suscritos por el usuario del token (estrella)"
+          }
+        },
+        {
+          "value": "minimum",
+          "label": {
+            "en": "Every part with a minimum stock",
+            "fr": "Tous les articles avec un stock minimum",
+            "de": "Alle Teile mit Mindestbestand",
+            "es": "Todos los artículos con stock mínimo"
+          }
+        }
+      ]
+    },
+    {
+      "key": "allow_stock_removal",
+      "type": "boolean",
+      "label": {
+        "en": "Allow scenes to remove stock",
+        "fr": "Autoriser les scènes à sortir du stock",
+        "de": "Szenen dürfen Bestand entnehmen",
+        "es": "Permitir que las escenas retiren stock"
+      },
+      "description": {
+        "en": "Enables the scene action \"Remove stock\". Off by default: a scene then only reads InvenTree.",
+        "fr": "Active l'action de scène « Sortir du stock ». Désactivé par défaut : une scène ne fait alors que lire InvenTree.",
+        "de": "Aktiviert die Szenenaktion „Bestand entnehmen“. Standardmäßig aus: eine Szene liest InvenTree dann nur.",
+        "es": "Activa la acción de escena «Retirar stock». Desactivado por defecto: una escena solo lee InvenTree."
+      },
+      "required": false,
+      "default": false
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of names and messages",
+        "fr": "Langue des noms et des messages",
+        "de": "Sprache der Namen und Meldungen",
+        "es": "Idioma de los nombres y mensajes"
+      },
+      "description": {
+        "en": "Feature names are set when the device is added to Gladys.",
+        "fr": "Les noms des fonctionnalités sont fixés à l'ajout de l'appareil dans Gladys.",
+        "de": "Die Namen der Funktionen werden beim Hinzufügen des Geräts zu Gladys festgelegt.",
+        "es": "Los nombres de las funciones se fijan al añadir el dispositivo a Gladys."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "timeout_seconds": 60
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
-      "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+      "key": "part_low_stock",
+      "label": {
+        "en": "Part below minimum",
+        "fr": "Article sous le seuil",
+        "de": "Teil unter Mindestbestand",
+        "es": "Artículo bajo el mínimo"
       },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
+      "description": {
+        "en": "A part falls below its minimum stock (again once restocked to its minimum).",
+        "fr": "Un article passe sous son stock minimum (de nouveau après réassort jusqu'au minimum).",
+        "de": "Ein Teil fällt unter seinen Mindestbestand (erneut nach dem Auffüllen bis zum Minimum).",
+        "es": "Un artículo baja de su stock mínimo (de nuevo tras reponerlo hasta el mínimo)."
+      },
       "variables": [
         {
-          "key": "target",
+          "key": "part",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Part",
+            "fr": "Article",
+            "de": "Teil",
+            "es": "Artículo"
+          }
+        },
+        {
+          "key": "ipn",
+          "type": "string",
+          "label": {
+            "en": "IPN",
+            "fr": "Référence interne",
+            "de": "IPN",
+            "es": "IPN"
+          }
+        },
+        {
+          "key": "category",
+          "type": "string",
+          "label": {
+            "en": "Category",
+            "fr": "Catégorie",
+            "de": "Kategorie",
+            "es": "Categoría"
+          }
+        },
+        {
+          "key": "quantity",
+          "type": "number",
+          "label": {
+            "en": "Quantity in stock",
+            "fr": "Quantité en stock",
+            "de": "Menge auf Lager",
+            "es": "Cantidad en stock"
+          }
+        },
+        {
+          "key": "minimum",
+          "type": "number",
+          "label": {
+            "en": "Minimum stock",
+            "fr": "Stock minimum",
+            "de": "Mindestbestand",
+            "es": "Stock mínimo"
+          }
+        },
+        {
+          "key": "on_order",
+          "type": "number",
+          "label": {
+            "en": "Quantity on order",
+            "fr": "Quantité en commande",
+            "de": "Bestellte Menge",
+            "es": "Cantidad pedida"
+          }
+        }
+      ]
+    },
+    {
+      "key": "part_out_of_stock",
+      "label": {
+        "en": "Part out of stock",
+        "fr": "Article en rupture",
+        "de": "Teil nicht vorrätig",
+        "es": "Artículo agotado"
+      },
+      "description": {
+        "en": "A part with a minimum stock has none left (again once restocked).",
+        "fr": "Un article avec un stock minimum n'en a plus du tout (de nouveau après réassort).",
+        "de": "Ein Teil mit Mindestbestand ist ganz leer (erneut nach dem Auffüllen).",
+        "es": "Un artículo con stock mínimo ya no tiene existencias (de nuevo tras reponerlo)."
+      },
+      "variables": [
+        {
+          "key": "part",
+          "type": "string",
+          "label": {
+            "en": "Part",
+            "fr": "Article",
+            "de": "Teil",
+            "es": "Artículo"
+          }
+        },
+        {
+          "key": "ipn",
+          "type": "string",
+          "label": {
+            "en": "IPN",
+            "fr": "Référence interne",
+            "de": "IPN",
+            "es": "IPN"
+          }
+        },
+        {
+          "key": "category",
+          "type": "string",
+          "label": {
+            "en": "Category",
+            "fr": "Catégorie",
+            "de": "Kategorie",
+            "es": "Categoría"
+          }
+        },
+        {
+          "key": "minimum",
+          "type": "number",
+          "label": {
+            "en": "Minimum stock",
+            "fr": "Stock minimum",
+            "de": "Mindestbestand",
+            "es": "Stock mínimo"
+          }
+        },
+        {
+          "key": "on_order",
+          "type": "number",
+          "label": {
+            "en": "Quantity on order",
+            "fr": "Quantité en commande",
+            "de": "Bestellte Menge",
+            "es": "Cantidad pedida"
+          }
+        }
+      ]
+    },
+    {
+      "key": "order_received",
+      "label": {
+        "en": "Purchase order received",
+        "fr": "Commande reçue",
+        "de": "Bestellung erhalten",
+        "es": "Pedido recibido"
+      },
+      "description": {
+        "en": "A purchase order in progress is completed in InvenTree (all its lines received).",
+        "fr": "Une commande d'achat en cours est terminée dans InvenTree (toutes ses lignes reçues).",
+        "de": "Eine laufende Bestellung ist in InvenTree abgeschlossen (alle Positionen erhalten).",
+        "es": "Un pedido de compra en curso se completa en InvenTree (todas sus líneas recibidas)."
+      },
+      "variables": [
+        {
+          "key": "order",
+          "type": "string",
+          "label": {
+            "en": "Order reference",
+            "fr": "Référence de la commande",
+            "de": "Bestellnummer",
+            "es": "Referencia del pedido"
+          }
+        },
+        {
+          "key": "supplier",
+          "type": "string",
+          "label": {
+            "en": "Supplier",
+            "fr": "Fournisseur",
+            "de": "Lieferant",
+            "es": "Proveedor"
+          }
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "label": {
+            "en": "Description",
+            "fr": "Description",
+            "de": "Beschreibung",
+            "es": "Descripción"
+          }
+        },
+        {
+          "key": "lines",
+          "type": "number",
+          "label": {
+            "en": "Lines",
+            "fr": "Lignes",
+            "de": "Positionen",
+            "es": "Líneas"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "read_part_stock",
+      "label": {
+        "en": "Read the stock of a part",
+        "fr": "Lire le stock d'un article",
+        "de": "Bestand eines Teils lesen",
+        "es": "Leer el stock de un artículo"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Quantity in stock, minimum and quantity on order, and a sentence to send or say.",
+        "fr": "Quantité en stock, minimum et quantité en commande, et une phrase à envoyer ou à dire.",
+        "de": "Menge auf Lager, Minimum und bestellte Menge, und ein Satz zum Senden oder Vorlesen.",
+        "es": "Cantidad en stock, mínimo y cantidad pedida, y una frase para enviar o decir."
+      },
+      "timeout_seconds": 30,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "key": "part",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Part",
+            "fr": "Article",
+            "de": "Teil",
+            "es": "Artículo"
+          },
+          "description": {
+            "en": "Name, IPN or number (#12) of the part in InvenTree.",
+            "fr": "Nom, référence interne (IPN) ou numéro (#12) de l'article dans InvenTree.",
+            "de": "Name, IPN oder Nummer (#12) des Teils in InvenTree.",
+            "es": "Nombre, IPN o número (#12) del artículo en InvenTree."
+          },
+          "placeholder": {
+            "en": "e.g. Arduino Nano or R-10K",
+            "fr": "ex. Arduino Nano ou R-10K",
+            "de": "z. B. Arduino Nano oder R-10K",
+            "es": "p. ej. Arduino Nano o R-10K"
+          }
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
+          "key": "quantity",
+          "type": "number",
+          "label": {
+            "en": "Quantity in stock",
+            "fr": "Quantité en stock",
+            "de": "Menge auf Lager",
+            "es": "Cantidad en stock"
+          }
+        },
+        {
+          "key": "minimum",
+          "type": "number",
+          "label": {
+            "en": "Minimum stock",
+            "fr": "Stock minimum",
+            "de": "Mindestbestand",
+            "es": "Stock mínimo"
+          }
+        },
+        {
+          "key": "on_order",
+          "type": "number",
+          "label": {
+            "en": "Quantity on order",
+            "fr": "Quantité en commande",
+            "de": "Bestellte Menge",
+            "es": "Cantidad pedida"
+          }
+        },
+        {
+          "key": "low",
           "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "label": {
+            "en": "Below minimum",
+            "fr": "Sous le seuil",
+            "de": "Unter Mindestbestand",
+            "es": "Bajo el mínimo"
+          }
+        },
+        {
+          "key": "text",
+          "type": "string",
+          "label": {
+            "en": "Summary text",
+            "fr": "Texte du résumé",
+            "de": "Zusammenfassung",
+            "es": "Texto del resumen"
+          }
+        }
+      ]
+    },
+    {
+      "key": "remove_stock",
+      "label": {
+        "en": "Remove stock",
+        "fr": "Sortir du stock",
+        "de": "Bestand entnehmen",
+        "es": "Retirar stock"
+      },
+      "description": {
+        "en": "Take a quantity out of a part's stock in InvenTree (to enable in the configuration).",
+        "fr": "Retire une quantité du stock d'un article dans InvenTree (à activer dans la configuration).",
+        "de": "Entnimmt eine Menge aus dem Bestand eines Teils in InvenTree (in der Konfiguration aktivieren).",
+        "es": "Retira una cantidad del stock de un artículo en InvenTree (a activar en la configuración)."
+      },
+      "timeout_seconds": 30,
+      "fields": [
+        {
+          "key": "part",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Part",
+            "fr": "Article",
+            "de": "Teil",
+            "es": "Artículo"
+          },
+          "description": {
+            "en": "Name, IPN or number (#12) of the part in InvenTree.",
+            "fr": "Nom, référence interne (IPN) ou numéro (#12) de l'article dans InvenTree.",
+            "de": "Name, IPN oder Nummer (#12) des Teils in InvenTree.",
+            "es": "Nombre, IPN o número (#12) del artículo en InvenTree."
+          },
+          "placeholder": {
+            "en": "e.g. Arduino Nano or R-10K",
+            "fr": "ex. Arduino Nano ou R-10K",
+            "de": "z. B. Arduino Nano oder R-10K",
+            "es": "p. ej. Arduino Nano o R-10K"
+          }
+        },
+        {
+          "key": "quantity",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "max": 100000,
+          "default": 1,
+          "label": {
+            "en": "Quantity",
+            "fr": "Quantité",
+            "de": "Menge",
+            "es": "Cantidad"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "quantity",
+          "type": "number",
+          "label": {
+            "en": "Quantity in stock",
+            "fr": "Quantité en stock",
+            "de": "Menge auf Lager",
+            "es": "Cantidad en stock"
+          }
+        },
+        {
+          "key": "minimum",
+          "type": "number",
+          "label": {
+            "en": "Minimum stock",
+            "fr": "Stock minimum",
+            "de": "Mindestbestand",
+            "es": "Stock mínimo"
+          }
+        },
+        {
+          "key": "on_order",
+          "type": "number",
+          "label": {
+            "en": "Quantity on order",
+            "fr": "Quantité en commande",
+            "de": "Bestellte Menge",
+            "es": "Cantidad pedida"
+          }
+        },
+        {
+          "key": "low",
+          "type": "boolean",
+          "label": {
+            "en": "Below minimum",
+            "fr": "Sous le seuil",
+            "de": "Unter Mindestbestand",
+            "es": "Bajo el mínimo"
+          }
+        },
+        {
+          "key": "text",
+          "type": "string",
+          "label": {
+            "en": "Summary text",
+            "fr": "Texte du résumé",
+            "de": "Zusammenfassung",
+            "es": "Texto del resumen"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "restock",
+      "label": {
+        "en": "Parts to restock",
+        "fr": "Articles à réapprovisionner",
+        "de": "Nachzubestellende Teile",
+        "es": "Artículos a reponer"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "InvenTree parts below their minimum or out of stock, and the purchase orders in progress.",
+        "fr": "Articles InvenTree sous leur seuil ou en rupture, et les commandes d'achat en cours.",
+        "de": "InvenTree-Teile unter Mindestbestand oder leer, und die laufenden Bestellungen.",
+        "es": "Artículos de InvenTree bajo su mínimo o agotados, y los pedidos de compra en curso."
+      },
+      "icon": "package"
     }
   ]
 }

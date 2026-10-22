@@ -16,8 +16,8 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "remove"  # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -32,15 +32,20 @@ pushing.
 
 ```
 index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+src/app.js                        registers every SDK handler on the hub (shared with the tests)
+src/hub.js                        the link to one InvenTree: reads, devices, states, triggers, actions
+src/devices.js                    stock device + one device per followed part, and their states
+src/inventree/client.js           REST client (Token auth, paging, error kinds)
+src/inventree/model.js            rows -> parts, orders, stock value, summary (low / out of stock)
+src/texts.js                      every text the container produces, in en/fr/de/es
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    the "Parts to restock" widget (manifest `widgets`)
+src/store.js                      what the triggers announced, under /data
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
+test/                             node --test, against the SDK's fake Gladys and a fake InvenTree
+test/fixtures/inventree/1.6.1/    answers recorded on a real InvenTree 1.6.1 (demo data)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +75,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, manifest texts, widget texts, feature names, and `docs/en.md`,
+  `docs/fr.md`, `docs/de.md`, `docs/es.md` with the same sections
+  (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +240,29 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## InvenTree (vérifié sur inventree/inventree 1.6.1, API 561, le 22/10/2026)
+
+- Banc de test : `inventree/inventree:stable` + PostgreSQL 16 en Docker. Le `INVENTREE_SITE_URL` exige un nom
+  de domaine complet (`inventree.test`, une IP ou `localhost`) : un nom de conteneur nu fait échouer
+  `invoke update` (INVE-E17). Migrations par `invoke update --skip-backup`, puis le serveur.
+- `GET /api/` répond **sans jeton** (version, `server: "InvenTree"`) : sert à reconnaître InvenTree, pas à
+  vérifier le jeton. Le jeton se vérifie sur `/api/part/`.
+- Une liste sans `limit` est un **tableau nu** ; avec `limit`/`offset`, `{ count, next, previous, results }`.
+  Toujours paginer.
+- `full_name` d'un article est préfixé par l'IPN (`R-10K | Resistor 10k`) : afficher `name` (+ révision).
+- Stock bas = règle d'InvenTree (`low_stock`) : `minimum_stock > 0` et `total_in_stock < minimum_stock`
+  (strict, variantes comprises). « Rupture » ici = minimum > 0 et stock nul. Le filtre `depleted_stock`
+  d'InvenTree (`in_stock = 0` et des lots existants) rate les lots supprimés par `delete_on_deplete`.
+- **`POST /api/stock/remove/` ne refuse pas une quantité supérieure au lot** : 201, le lot est vidé (et
+  supprimé). L'intégration vérifie le total avant et répartit sur les lots (péremption la plus proche, puis les plus anciens), une sortie à la fois
+  (fixture `remove-too-much.json`).
+- Réception complète d'une commande (`/order/po/<id>/receive/`) : la commande passe d'elle-même à
+  `COMPLETE` (30). Une commande qui quitte `outstanding=true` est lue une fois pour distinguer reçue,
+  annulée ou supprimée.
+- `/api/currency/exchange/` : `base_currency` = devise principale, taux « 1 base = x devise » ; lisible par
+  tout utilisateur authentifié.
+- Rôles : sans rôle « Pièces », `/part/` répond 403 ; commandes et stock sont lus si le rôle le permet,
+  sinon leurs fonctionnalités restent vides.
+- `starred` d'un article est propre à l'utilisateur du jeton : c'est le choix par défaut des appareils
+  d'articles (pas d'identifiants à saisir).

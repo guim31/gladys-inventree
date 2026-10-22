@@ -1,61 +1,138 @@
-# Demo Devices Template
+# InvenTree
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Follow your [InvenTree](https://inventree.org/) inventory in Gladys: the parts
+below their minimum stock, the parts out of stock, the purchase orders on the
+way and the value of the stock. Scenes can react when a part runs low or when
+an order is received, read the stock of a part, and if you allow it, take
+parts out of the stock. Gladys talks directly to your InvenTree server, at
+home or hosted.
 
-## What you get
+Tested against a real InvenTree 1.6.1 server (the official Docker image, with
+PostgreSQL). Feedback welcome on the Gladys forum.
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+## Prerequisites
+
+- Gladys Assistant 5.1 or later.
+- An InvenTree server (version 1.0 or later) reachable from the Gladys
+  machine: on your network, or on the Internet in HTTPS.
+- An API token: in InvenTree, open your user settings, **Security**, **Access
+  tokens**, add a token and copy it. A dedicated user is a good idea. Its roles
+  (Admin, Groups) decide what Gladys sees:
+  - **Parts: view**, required;
+  - **Purchase orders: view**, for the orders in progress and received;
+  - **Stock items: view**, for the value of the stock;
+  - **Stock items: change**, only to remove stock from a scene.
 
 ## Configuration
 
 1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+2. In **InvenTree address**, enter the address you open in your browser, for
+   example `http://192.168.1.50:8000` or `https://inventree.example.org`.
+3. Paste the **API token** (with or without the word `Token` in front).
+4. **Read InvenTree every**: 5, 15 (default), 30 minutes or 1 hour.
+5. **One device per part**: none, the parts the user of the token subscribed
+   to (the star on the page of a part, the default), or every part with a
+   minimum stock. 50 parts at most.
+6. **Allow scenes to remove stock**: off by default. Turn it on only if a
+   scene should take parts out of InvenTree.
+7. **Language of names and messages** sets the feature names (fixed when the
+   device is added) and the texts of the scene actions. French by default.
+8. Save, then use **Test the connection**: it shows the InvenTree version, the
+   number of parts, those below minimum and the orders in progress.
+9. In the **Discovery** tab, add the **InvenTree** device and the part devices
+   you want.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+## Devices
 
-## Actions
+The **InvenTree** device:
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+| Feature                     | Meaning                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| Parts                       | Active parts (virtual parts left out)                                             |
+| Parts below minimum         | Parts with a minimum stock and a total stock strictly below it (InvenTree's rule) |
+| Parts out of stock          | Parts with a minimum stock and nothing left                                       |
+| Purchase orders in progress | Orders pending, placed or on hold                                                 |
+| Overdue purchase orders     | Orders past their target date                                                     |
+| Stock value                 | Quantity × purchase price of the stock items, in the main currency of InvenTree   |
 
-## Scenes
+Prices in another currency are converted with the exchange rates of InvenTree;
+an item without a price counts for nothing. The value has the euro, dollar or
+pound unit when that is the main currency of InvenTree.
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+Each **part device** (named after the part) has: quantity in stock (with
+history), minimum stock and quantity on order. The stock of a part includes
+its variants, as in InvenTree.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+A token whose user may not view the orders or the stock items leaves those
+features empty, rather than showing a false zero.
 
-## Dashboard
+## Dashboard widget
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+**Parts to restock**: tiles with the parts below minimum, out of stock and the
+purchase orders in progress (orange when one is overdue), and the list of the
+parts to restock, the emptiest first: quantity, minimum, quantity on order.
+
+## Scene triggers
+
+- **Part below minimum**: a part falls below its minimum stock. Variables:
+  part, IPN, category, quantity in stock, minimum stock, quantity on order. The
+  part is announced again after it went back to its minimum.
+- **Part out of stock**: a part with a minimum stock has none left. Variables:
+  part, IPN, category, minimum stock, quantity on order.
+- **Purchase order received**: an order in progress is completed in InvenTree.
+  Variables: order reference, supplier, description, number of lines.
+
+The first read after the installation is silent: what is already low is not
+announced. A restart does not announce anything twice. At most 10 events of
+each kind are fired per read (a mass import does not flood your scenes).
+
+## Scene actions
+
+- **Read the stock of a part**: give the part by its name, its IPN, a piece
+  of its name that only one part has, or its number (`#12`). Outputs: quantity
+  in stock, minimum stock, quantity on order, below minimum (yes/no) and a
+  sentence such as "Arduino Nano: 2 in stock, minimum 3, 5 on order.".
+- **Remove stock** (only when allowed in the configuration): takes a quantity
+  out of a part, from its stock items expiring first, then the oldest, and writes it in the
+  history of InvenTree ("Removed by a Gladys Assistant scene"). Nothing is
+  removed when the stock is short. Only the part's own stock items are used (not those of its variants), allocated stock included; serialized items are left alone. Same
+  outputs as the reading.
+
+## Scene examples
+
+- **Shopping list**: trigger "Part below minimum" → message "Restock
+  {{triggerEvent.data.part}}: {{triggerEvent.data.quantity}} left (minimum
+  {{triggerEvent.data.minimum}})".
+- **Delivery arrived**: trigger "Purchase order received" → message "Order
+  {{triggerEvent.data.order}} from {{triggerEvent.data.supplier}} received".
+- **Filament for the next print**: every evening → "Read the stock of a part"
+  `PLA black` → continue only if "below minimum" is true → send the sentence
+  as a message.
+- **Coffee capsules**: a button press → "Remove stock" `Coffee capsules`, 1.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"Token refused"**: the token was revoked or expired; create a new one.
+- **"The user of this token may not view the parts"**: give the user the
+  **Parts** role (view), or use another user's token.
+- **"This address does not answer like InvenTree"**: check the address (the
+  one of the web interface, with its port), and that no proxy asks for a login
+  first.
+- **No order or value**: the user of the token lacks the **Purchase orders**
+  or **Stock items** role (view); the logs of the integration say so once.
+- **No part device**: subscribe to the parts (star) with the user of the
+  token, or choose "Every part with a minimum stock".
+- Detailed logs: set the `LOG_LEVEL` variable of the container to `debug`.
+
+## Limits
+
+- One InvenTree server per integration.
+- InvenTree does not notify: changes reach Gladys at the next read (15 minutes
+  by default), or at once after a removal made by a scene.
+- Parts without a minimum stock are never "below minimum" nor "out of stock":
+  give a minimum (even 1) to the parts you want to follow.
+- The value only counts stock items that have a purchase price.
+- The scene action removes whole quantities (1 or more): the Gladys form has
+  no decimals. Decimal quantities (0.5 kg) are shown as they are.
+- Sales orders, builds and the other InvenTree modules are not followed.
+- Not affiliated with the InvenTree project.
