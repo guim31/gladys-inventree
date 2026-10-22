@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-22
+
 ### Added
 
 - An InvenTree device: parts, parts below minimum, parts out of stock, purchase
@@ -26,4 +28,5 @@ the notes of the version's GitHub Release.
   stay empty.
 - Texts and documentation in English, French, German and Spanish.
 
-[Unreleased]: https://github.com/guim31/gladys-inventree/commits/main
+[Unreleased]: https://github.com/guim31/gladys-inventree/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-inventree/releases/tag/v1.0.0
